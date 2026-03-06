@@ -1,0 +1,10 @@
+apiVersion: weka.weka.io/v1alpha1
+kind: WekaPolicy
+metadata:
+  name: sign-drives
+  namespace: weka-operator-system # Replace with your namespace
+spec:
+  type: sign-drives
+  payload:
+    signDrivesPayload:
+      type: "all-not-root"
