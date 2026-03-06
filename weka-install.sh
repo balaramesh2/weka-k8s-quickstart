@@ -53,7 +53,7 @@ command kubectl --kubeconfig "${KUBECONFIG}" create -f secret.yaml
 echo "Examining huge pages config on each node.."
 echo "Guidelines: https://docs.weka.io/kubernetes/weka-operator-deployments#configure-hugepages-for-kubernetes-worker-nodes"
 
-command kubectl --kubeconfig "${KUBECONFIG}" describe node | grep -B 2 -A 5 "Capacity"
+command kubectl --kubeconfig "${KUBECONFIG}" get nodes -o custom-columns=NAME:.metadata.name,HUGEPAGES-2Mi:.status.allocatable.hugepages-2Mi,HUGEPAGES-1Gi:.status.allocatable.hugepages-1Gi
 
 echo "Create a wekaPolicy to sign drives..\n\n"
 
