@@ -31,7 +31,7 @@ fi
 
 echo "Deploy Weka operator version ${WEKA_OPERATOR_VERSION}...\n\n"
 
-command helm upgrade --create-namespace --kubeconfig "${KUBECONFIG}" --install weka-operator oci://quay.io/weka.io/helm/weka-operator --namespace weka-operator-system --version ${WEKA_OPERATOR_VERSION:=v1.10.2} --set csi.installationEnabled=true
+command helm upgrade --create-namespace --kubeconfig "${KUBECONFIG}" --install weka-operator oci://quay.io/weka.io/helm/weka-operator --namespace weka-operator-system --version ${WEKA_OPERATOR_VERSION:=v1.10.5} --set csi.installationEnabled=true
 
 echo "Weka operator deployment complete...\n\n"
 
