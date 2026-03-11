@@ -4,6 +4,7 @@ metadata:
   name: cluster1
   namespace: weka-operator-system
 spec:
+  gracefulDestroyDuration: 0h0m30s
   template: dynamic
   dynamicTemplate:
     computeContainers: 6

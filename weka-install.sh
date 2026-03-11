@@ -4,40 +4,56 @@ export WEKA_IMAGE_VERSION=${WEKA_IMAGE_VERSION}
 # wipe screen.
 clear
 
-echo "Beginning run to install WEKA Operator ${WEKA_OPERATOR_VERSION} and WEKA version ${WEKA_IMAGE_VERSION}..."
+echo "\n\nBeginning run to install WEKA Operator ${WEKA_OPERATOR_VERSION} and WEKA version ${WEKA_IMAGE_VERSION}..."
 echo "...\n...\n...\n"
 
 # Check the helm installation.
-echo "Checking if Helm is installed..."
+echo "\n\nChecking if Helm is installed...\n\n"
 command -v helm version --short >/dev/null 2>&1 || { echo >&2 "Helm version 3+ is required but not installed yet... download and install here: https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3"; exit; }
-echo "Helm good to go!...\n\n"
+echo "\n\nHelm good to go!...\n\n"
 
 # Check the kubectl installation.
-echo "Checking if kubectl is installed...\n\n"
+echo "\n\nChecking if kubectl is installed...\n\n"
 command -v kubectl version >/dev/null 2>&1 || { echo >&2 "Kubectl is required but not installed yet... download and install: https://kubernetes.io/docs/tasks/tools/"; exit; }
-echo "kubectl good to go!...\n\n"
+echo "\n\nkubectl good to go!...\n\n"
 
 ## Access k8s cluster.
-echo "Status of nodes in the cluster....\n\n"
+echo "\n\nStatus of nodes in the cluster....\n\n"
 
 command kubectl --kubeconfig "${KUBECONFIG}" get nodes
 
 if [ $? -ne 0 ]; then
   echo
-	echo "Error occurred during kubectl get nodes???.Is your KUBECONFIG variable set??"
+	echo "\n\nError occurred during kubectl get nodes???.Is your KUBECONFIG variable set??\n\n"
 	echo
 	exit;
 fi
 
-echo "Deploy Weka operator version ${WEKA_OPERATOR_VERSION}...\n\n"
+echo "\n\nExamining huge pages config on each node..\n\n"
+echo "Guidelines: https://docs.weka.io/kubernetes/weka-operator-deployments#configure-hugepages-for-kubernetes-worker-nodes\n\n"
+
+command kubectl --kubeconfig "${KUBECONFIG}" get nodes -o custom-columns='NAME:.metadata.name,HUGEPAGES-2Mi:.status.allocatable.hugepages-2Mi,HUGEPAGES-1Gi:.status.allocatable.hugepages-1Gi'
+
+echo "\n\nDoes this look okay?..Sleeping for 10 seconds..\n\n\n"
+
+sleep 10s
+
+echo "\n\nCreating WEKA Operator namespace and WEKA secret...\n\n"
+
+command kubectl --kubeconfig "${KUBECONFIG}" create ns weka-operator-system
+command kubectl --kubeconfig "${KUBECONFIG}" create -f secret.yaml
+
+echo "\n\nProceeding to deploy Weka operator version ${WEKA_OPERATOR_VERSION}...\n\n"
 
 command helm upgrade --create-namespace --kubeconfig "${KUBECONFIG}" --install weka-operator oci://quay.io/weka.io/helm/weka-operator --namespace weka-operator-system --version ${WEKA_OPERATOR_VERSION:=v1.10.5} --set csi.installationEnabled=true
 
-echo "Weka operator deployment complete...\n\n"
+echo "\n\nWeka operator deployment complete...\n\n"
 
-echo "Examining status of pods in weka-operator-system namespace...Pods should be up and running...\n\n"
+sleep 2s
 
-command kubectl --kubeconfig "${KUBECONFIG}" wait --for=condition=Ready pod --all --timeout=100s --namespace weka-operator-system
+echo "\n\nExamining status of pods in weka-operator-system namespace...Pods should be up and running...\n\n"
+
+command kubectl --kubeconfig "${KUBECONFIG}" wait --for=condition=Ready pod --all --timeout=200s --namespace weka-operator-system
 
 if [ $? -ne 0 ]; then
         echo
@@ -46,73 +62,71 @@ if [ $? -ne 0 ]; then
         exit;
 fi
 
-echo "Creating WEKA secret...\n\n"
-
-command kubectl --kubeconfig "${KUBECONFIG}" create -f secret.yaml
-
-echo "Examining huge pages config on each node.."
-echo "Guidelines: https://docs.weka.io/kubernetes/weka-operator-deployments#configure-hugepages-for-kubernetes-worker-nodes"
-
-command kubectl --kubeconfig "${KUBECONFIG}" get nodes -o custom-columns=NAME:.metadata.name,HUGEPAGES-2Mi:.status.allocatable.hugepages-2Mi,HUGEPAGES-1Gi:.status.allocatable.hugepages-1Gi
-
-echo "Create a wekaPolicy to sign drives..\n\n"
+echo "\n\nCreate a wekaPolicy to sign drives..\n\n"
 
 command kubectl --kubeconfig "${KUBECONFIG}" create -f wekapolicy.yaml
 
-echo "Observing progress of wekaPolicy...Condition is met if policy is in Done Status\n\n"
-
-command kubectl --kubeconfig "${KUBECONFIG}" wait --for=jsonpath='{.status.status}'=Done wekapolicy/sign-drives --timeout=10s -n weka-operator-system
-
-echo "Print all nodes and the value of their weka.io/weka-drives annotation..."
-echo "A non-zero annotation value indicates successful drive signing...\n\n"
-
-command kubectl --kubeconfig "${KUBECONFIG}" get nodes -o json | jq -r '.items[] | select(.metadata.annotations."weka.io/weka-drives") | .metadata.name,.metadata.annotations."weka.io/weka-drives"'
-
-echo "Deploying wekaCluster weka-operator-system namespace...\n\n"
-
-command envsubst < wekacluster.yaml | kubectl apply -f -
-
-echo "Manifest deployed...Wait for 8 to 9 minutes for everything to be running..."
+echo "\n\nObserving progress of wekaPolicy...Condition is met if policy is in Done Status\n\n"
 
 sleep 30s
 
-echo "Following along with the installation...\n\n"
+command kubectl --kubeconfig "${KUBECONFIG}" wait --for=jsonpath='{.status.status}'=Done wekapolicy/sign-drives --timeout=200s -n weka-operator-system
 
-echo "Observing the status of wekacluster...\n\n"
+sleep 30s
+
+echo "\n\nPrint all nodes and the value of their weka.io/weka-drives annotation...\n\n\n"
+
+command kubectl --kubeconfig "${KUBECONFIG}" get nodes -o custom-columns='NAME:.metadata.name,WEKADRIVES:.metadata.annotations.weka\.io/weka-drives'
+
+sleep 10s 
+
+echo "\n\nDeploying wekaCluster weka-operator-system namespace...\n\n\n"
+
+command envsubst < wekacluster.yaml | kubectl apply -f -
+
+echo "\n\nManifest deployed...Wait for 8 to 9 minutes for everything to be running...\n\n"
+
+sleep 30s
+
+echo "\n\nFollowing along with the installation...\n\n"
+
+sleep 2s
+
+echo "\n\nObserving the status of wekacluster...\n\n"
 
 command kubectl --kubeconfig "${KUBECONFIG}" get wekacluster -n weka-operator-system
 
-echo "Taking a look at pods in the install namespace...\n\n"
+echo "\n\nTaking a look at pods in the install namespace...\n\n"
 
 command kubectl --kubeconfig "${KUBECONFIG}" get pods -n weka-operator-system
 
-echo "Now we wait until the wekacluster reports Ready status....\n\n"
+echo "\n\nNow we wait for 8 minutes, or until the wekacluster reports Ready status....\n\n"
 
 sleep 20s
 
 command kubectl --kubeconfig "${KUBECONFIG}" wait --for=jsonpath='{.status.status}'=Ready wekacluster/cluster1 --timeout=400s -n weka-operator-system 
 
-echo "Success! WekaCluster is up and running...\n\n"
+echo "\n\nSuccess! WekaCluster is up and running...\n\n"
 
 command kubectl --kubeconfig "${KUBECONFIG}" get wekacluster -n weka-operator-system
 
-echo "Creating wekaclient with WEKA version ${WEKA_IMAGE_VERSION}...\n\n"
+echo "\n\nCreating wekaclient with WEKA version ${WEKA_IMAGE_VERSION}...\n\n"
 
 command envsubst < wekaclient.yaml | kubectl apply -f -
 
-echo "Waiting for wekaclient to report Ready status...\n\n"
+echo "\n\nWaiting for 8 minutes, or wekaclient to report Ready status...\n\n"
 
 command kubectl --kubeconfig "${KUBECONFIG}" wait --for=jsonpath='{.status.status}'=Running wekaclient/cluster1-client --timeout=400s -n weka-operator-system
 
-echo "wekaClient is up and running!!Next, taking a look at pods in the install namespace...\n\n"
+echo "\n\nwekaClient is up and running!!Next, taking a look at pods in the install namespace...\n\n"
 
 command kubectl --kubeconfig "${KUBECONFIG}" get pods -n weka-operator-system
 
-echo "CSI is also up and running!...\n\nTime to create a pod and PVC...\n\n"
+echo "\n\nCSI is also up and running!...\n\nTime to create a pod and PVC...\n\n"
 
 command kubectl --kubeconfig "${KUBECONFIG}" create -f pvcandpod.yaml
 
-echo "Wait for pod and PVC to be ready...\n\n"
+echo "\n\nWait for 100 seconds, or for pod and PVC to be ready...\n\n"
 
 command kubectl --kubeconfig "${KUBECONFIG}" wait --for=condition=Ready pod --all --timeout=100s --namespace default
 
