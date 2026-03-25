@@ -100,11 +100,11 @@ echo "\n\nTaking a look at pods in the install namespace...\n\n"
 
 command kubectl --kubeconfig "${KUBECONFIG}" get pods -n weka-operator-system
 
-echo "\n\nNow we wait for 8 minutes, or until the wekacluster reports Ready status....\n\n"
+echo "\n\nNow we wait for 16 minutes, or until the wekacluster reports Ready status....\n\n"
 
 sleep 20s
 
-command kubectl --kubeconfig "${KUBECONFIG}" wait --for=jsonpath='{.status.status}'=Ready wekacluster/cluster1 --timeout=400s -n weka-operator-system 
+command kubectl --kubeconfig "${KUBECONFIG}" wait --for=jsonpath='{.status.status}'=Ready wekacluster/cluster1 --timeout=800s -n weka-operator-system 
 
 echo "\n\nSuccess! WekaCluster is up and running...\n\n"
 
